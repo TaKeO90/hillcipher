@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"os"
 	"strconv"
@@ -9,12 +10,65 @@ import (
 	"time"
 )
 
-// TODO: Implement encrypt function
+const letters string = "abcdefghijklmnopqrstuvwxyz "
 
-const letters string = "abcdefghijklmnopqrstuvwxyz_"
+// InfoLogger ...
+var InfoLogger *log.Logger = log.New(os.Stdout, "[INFO] ", log.Ldate)
 
+// HillCipher ...
+type HillCipher interface {
+	Encrypt() string
+	Decrypt() string
+}
+
+// Cipher structure holds the items
+// that we need to generate our cipher key and encrypt or decrypt
+type Cipher struct {
+	keysize int
+	word    string
+	genKey  Key
+}
+
+// Encrypt hillcipher encryption.
+func (c *Cipher) Encrypt() (result string) {
+	pairs := wordToPairs(c.word, c.keysize)
+	for _, pair := range pairs {
+		result += strings.Join(c.genKey.Mult(pair).ToLetters(), "")
+	}
+	return
+}
+
+// Decrypt hillcipher decryption.
+func (c *Cipher) Decrypt() (result string) {
+	//TODO: Find Determinant of Key.
+	//TODO: Transpose key matrix.
+	//TODO: Find Minor.
+	//TODO: Find Co-Factor.
+	return
+}
+
+// NewCipher ....
+func NewCipher(size int, word string) (hillCipher HillCipher) {
+
+	key := new(Key)
+	key.Gen(size)
+
+	InfoLogger.Printf("Generated Key %s", key.String())
+
+	cipher := &Cipher{
+		keysize: size,
+		word:    word,
+		genKey:  *key,
+	}
+	hillCipher = cipher
+
+	return
+}
+
+// Key ...
 type Key [][]int
 
+// Gen generate new key with a given size.
 func (k *Key) Gen(n int) {
 
 	*k = make(Key, n)
@@ -22,12 +76,13 @@ func (k *Key) Gen(n int) {
 		for j := 0; j < n; j++ {
 			rand.Seed(time.Now().UnixNano())
 			// FIXME: hardcoded max rand range
-			(*k)[i] = append((*k)[i], rand.Intn(40)%26)
+			(*k)[i] = append((*k)[i], rand.Intn(26))
 		}
 	}
 
 }
 
+// String key into string.
 func (k *Key) String() string {
 	var res string
 	for _, n := range *k {
@@ -36,8 +91,10 @@ func (k *Key) String() string {
 	return res
 }
 
+// Stack type alias of array of int.
 type Stack []int
 
+// Sum sum stack items.
 func (s Stack) Sum() (sum int) {
 	for _, n := range s {
 		sum += n
@@ -45,6 +102,12 @@ func (s Stack) Sum() (sum int) {
 	return
 }
 
+// GetDet get determinant using the integers that are stored in the stack like type.
+func (s Stack) GetDet() int {
+	return 0
+}
+
+// ToLetters Stack type into array of strings.
 func (s Stack) ToLetters() (out []string) {
 	for _, n := range s {
 		var index int = 0
@@ -60,7 +123,16 @@ func (s Stack) ToLetters() (out []string) {
 	return
 }
 
+// Mult Key method for multiplying matrices.
 func (k *Key) Mult(pair []int) (result Stack) {
+
+	if len(pair) < len(*k) {
+		rng := len(*k) - len(pair)
+		for i := 0; i < rng; i++ {
+			pair = append(pair, 26)
+		}
+	}
+
 	x := 0
 	stack := Stack{}
 	for i := range *k {
@@ -69,7 +141,7 @@ func (k *Key) Mult(pair []int) (result Stack) {
 			pairIndex := j % len(pair)
 			stack = append(stack, (*k)[x][y]*pair[pairIndex])
 			if j == len((*k)[i])-1 {
-				result = append(result, stack.Sum()%26)
+				result = append(result, stack.Sum()%len(letters))
 				stack = Stack{}
 				x++
 			}
@@ -109,26 +181,14 @@ func wordToPairs(word string, keySize int) (pairs [][]int) {
 func main() {
 
 	if len(os.Args) < 3 {
-		fmt.Println("USAGE")
-		os.Exit(1)
+		// TODO: update USAGE after introducing decryption
+		//       at the moment we only support encryption.
+		InfoLogger.Fatal("USAGE ./hillcipher <key size> <word>")
 	}
 
 	n, _ := strconv.Atoi(os.Args[1])
-
-	key := new(Key)
-
-	key.Gen(n)
-	fmt.Println("Generated the key => ", key.String())
-
 	word := os.Args[2]
-	pairs := wordToPairs(word, n)
 
-	fmt.Println("Pairs", pairs)
-
-	var str string
-	for _, p := range pairs {
-		str += strings.Join(key.Mult(p).ToLetters(), "")
-	}
-
-	fmt.Println(str)
+	// Encryption test.
+	fmt.Println(NewCipher(n, word).Encrypt())
 }
