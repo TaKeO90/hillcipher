@@ -1,11 +1,11 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -40,6 +40,8 @@ func (c *Cipher) Encrypt() (result string) {
 
 // Decrypt hillcipher decryption.
 func (c *Cipher) Decrypt() (result string) {
+	key := c.genKey
+	fmt.Println(key.Determinant(c.keysize))
 	//TODO: Find Determinant of Key.
 	//TODO: Transpose key matrix.
 	//TODO: Find Minor.
@@ -53,6 +55,7 @@ func NewCipher(size int, word string) (hillCipher HillCipher) {
 	key := new(Key)
 	key.Gen(size)
 
+	InfoLogger.Printf("Generated Key as Matrix %v", *key)
 	InfoLogger.Printf("Generated Key %s", key.String())
 
 	cipher := &Cipher{
@@ -63,6 +66,35 @@ func NewCipher(size int, word string) (hillCipher HillCipher) {
 	hillCipher = cipher
 
 	return
+}
+
+// KeyAsString
+type KeyAsString string
+
+// ToMatrix ...
+func (ks KeyAsString) ToMatrix(size int) *Key {
+	key := Key{}
+	index := 0
+	row := []int{}
+	count := 0
+	for _, l := range ks {
+		strings.Map(func(r rune) rune {
+			if r == l {
+				row = append(row, index)
+			}
+			index++
+			return 0
+		}, letters)
+		index = 0
+		count++
+		if count == size {
+			key = append(key, row)
+			row = []int{}
+			count = 0
+		}
+	}
+
+	return &key
 }
 
 // Key ...
@@ -91,6 +123,36 @@ func (k *Key) String() string {
 	return res
 }
 
+func (k *Key) Determinant(size int) (det int) {
+	var tb TwoByTwo
+	for _, n := range *k {
+		for _, m := range n {
+			tb = append(tb, m)
+		}
+	}
+	if size == 2 {
+		det = tb.Cal(-1)
+		fmt.Println("det", det)
+	}
+	// TODO: implement det for other matrix sizes
+
+	return
+
+}
+
+// TwoByTwo ...
+type TwoByTwo []int
+
+func (tb TwoByTwo) Cal(currentNum int) (result int) {
+	xIndex, yIndex := 0, len(tb)-1
+	if currentNum != -1 {
+		result = currentNum*(tb[xIndex]*tb[yIndex]) - (tb[xIndex+1] * tb[yIndex-1])
+		return
+	}
+	result = (tb[xIndex] * tb[yIndex]) - (tb[xIndex+1] * tb[yIndex-1])
+	return
+}
+
 // Stack type alias of array of int.
 type Stack []int
 
@@ -104,6 +166,7 @@ func (s Stack) Sum() (sum int) {
 
 // GetDet get determinant using the integers that are stored in the stack like type.
 func (s Stack) GetDet() int {
+	// TODO: ....
 	return 0
 }
 
@@ -176,19 +239,70 @@ func wordToPairs(word string, keySize int) (pairs [][]int) {
 	}
 	pairs = append(pairs, tmp)
 	return
+
+}
+
+type CipherMode int
+
+const (
+	encryption CipherMode = iota
+	decryption
+)
+
+func (cm CipherMode) String() string {
+	switch cm {
+	case encryption:
+		return "encryption"
+	case decryption:
+		return "decryption"
+	default:
+		return ""
+	}
 }
 
 func main() {
 
-	if len(os.Args) < 3 {
-		// TODO: update USAGE after introducing decryption
-		//       at the moment we only support encryption.
-		InfoLogger.Fatal("USAGE ./hillcipher <key size> <word>")
+	var (
+		mode    string
+		word    string
+		key     string
+		keysize int
+	)
+
+	flag.StringVar(&mode, "mode", "encryption", "use 'encryption' to encrypt or 'decryption' to decrypt")
+	flag.StringVar(&word, "word", "", "word to encrypt or decrypt")
+	flag.StringVar(&key, "key", "", "key to use to decrypt")
+	flag.IntVar(&keysize, "size", 0, "key size to generate when encrypting")
+
+	flag.Parse()
+
+	if mode == "" {
+		flag.PrintDefaults()
+		return
 	}
 
-	n, _ := strconv.Atoi(os.Args[1])
-	word := os.Args[2]
+	switch mode {
+	case encryption.String():
+		if keysize == 0 || word == "" {
+			flag.PrintDefaults()
+			return
+		}
+		fmt.Println(NewCipher(keysize, word).Encrypt())
+	case decryption.String():
+		if key == "" || word == "" || keysize == 0 {
+			flag.PrintDefaults()
+			return
+		}
 
-	// Encryption test.
-	fmt.Println(NewCipher(n, word).Encrypt())
+		mtxK := KeyAsString(key).ToMatrix(keysize)
+
+		cipher := &Cipher{
+			keysize: keysize,
+			word:    word,
+			genKey:  *mtxK,
+		}
+
+		fmt.Println(cipher.Decrypt())
+	}
+
 }
