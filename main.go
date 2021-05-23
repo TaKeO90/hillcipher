@@ -44,10 +44,10 @@ func (c *Cipher) Encrypt() (result string) {
 
 // Decrypt hillcipher decryption.
 func (c *Cipher) Decrypt() (result string) {
+	// TODO: need to separate the process of decryption for 2x2 and 3x3
 	key := c.genKey
+	InfoLogger.Printf("decrpytion key %v", key)
 	fmt.Println(key.Determinant(c.keysize))
-	//TODO: Find Determinant of Key.
-	//TODO: Transpose key matrix.
 	//TODO: Find Minor.
 	//TODO: Find Co-Factor.
 	return
@@ -128,20 +128,68 @@ func (k *Key) String() string {
 }
 
 func (k *Key) Determinant(size int) (det int) {
+	switch size {
+	case 2:
+		det = k.detOf2x2()
+	case 3:
+		det = k.detOf3x3()
+	}
+	return
+}
+
+// get the determinant of matrices of size 3
+func (k *Key) detOf3x3() (result int) {
+
+	const firstRowIndex = 0
+
+	stk := Stack{}
+	for i := range *k {
+		// twobytwo
+		tbt := TwoByTwo{}
+		x, y := 0, 0
+		switch i {
+		case 0:
+			x = i + 1
+			y = len(*k)
+			tbt = append(tbt, (*k)[x][x:y]...)
+			tbt = append(tbt, (*k)[x+1][x:y]...)
+			stk = append(stk, tbt.Cal((*k)[firstRowIndex][i]))
+		case 1:
+			x = i
+			y = len(*k) - 1
+			tbt = append(tbt, (*k)[x][x-1], (*k)[x+1][x-1], (*k)[x][y], (*k)[x+1][y])
+			stk = append(stk, tbt.Cal((*k)[firstRowIndex][i]))
+		case 2:
+			for _ = range *k {
+				if x == len(*k)-1 {
+					break
+				}
+				x++
+				if x == 1 {
+					tbt = append(tbt, (*k)[x][x-1:x+1]...)
+				} else {
+					tbt = append(tbt, (*k)[x][x-2:x]...)
+				}
+			}
+
+			stk = append(stk, tbt.Cal((*k)[firstRowIndex][i]))
+		}
+	}
+
+	d := stk.GetDet()
+	result = MultModular(d, 26)
+	return
+}
+
+// get the determinant of matrices of size 2
+func (k *Key) detOf2x2() int {
 	var tb TwoByTwo
 	for _, n := range *k {
 		for _, m := range n {
 			tb = append(tb, m)
 		}
 	}
-	if size == 2 {
-		det = tb.Cal(-1)
-		fmt.Println("det", det)
-	}
-	// TODO: implement det for other matrix sizes
-
-	return
-
+	return tb.Cal(-1)
 }
 
 // TwoByTwo ...
@@ -150,7 +198,7 @@ type TwoByTwo []int
 func (tb TwoByTwo) Cal(currentNum int) (result int) {
 	xIndex, yIndex := 0, len(tb)-1
 	if currentNum != -1 {
-		result = currentNum*(tb[xIndex]*tb[yIndex]) - (tb[xIndex+1] * tb[yIndex-1])
+		result = currentNum * ((tb[xIndex] * tb[yIndex]) - (tb[xIndex+1] * tb[yIndex-1]))
 		return
 	}
 	result = (tb[xIndex] * tb[yIndex]) - (tb[xIndex+1] * tb[yIndex-1])
@@ -170,8 +218,25 @@ func (s Stack) Sum() (sum int) {
 
 // GetDet get determinant using the integers that are stored in the stack like type.
 func (s Stack) GetDet() int {
-	// TODO: ....
-	return 0
+
+	res := 0
+	for i, n := range s {
+		if 1&i == 0 {
+			res += n
+		} else {
+			res -= n
+		}
+	}
+
+	return s.Mod(res, 26)
+}
+
+func (s Stack) Mod(n, m int) int {
+	if n < 0 && m > 0 || n > 0 && m < 0 {
+		return (n % m) + m
+	}
+
+	return n % m
 }
 
 // ToLetters Stack type into array of strings.
@@ -188,6 +253,15 @@ func (s Stack) ToLetters() (out []string) {
 	}
 
 	return
+}
+
+func MultModular(n, m int) int {
+	for i := 0; i < m; i++ {
+		if (i*n)%m == 1 {
+			return i
+		}
+	}
+	return 0
 }
 
 // Mult Key method for multiplying matrices.
