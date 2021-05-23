@@ -45,11 +45,15 @@ func (c *Cipher) Encrypt() (result string) {
 // Decrypt hillcipher decryption.
 func (c *Cipher) Decrypt() (result string) {
 	// TODO: need to separate the process of decryption for 2x2 and 3x3
+	// TODO: Find Co-Factor.
 	key := c.genKey
 	InfoLogger.Printf("decrpytion key %v", key)
-	fmt.Println(key.Determinant(c.keysize))
-	//TODO: Find Minor.
-	//TODO: Find Co-Factor.
+	det := key.Determinant(c.keysize)
+	InfoLogger.Printf("Det %v", det)
+	transpKey := key.Trans()
+	InfoLogger.Printf("Trans key %v", transpKey)
+	tK := Key(transpKey)
+	InfoLogger.Printf("Minor %v", tK.GetKeyMinor())
 	return
 }
 
@@ -101,6 +105,15 @@ func (ks KeyAsString) ToMatrix(size int) *Key {
 	return &key
 }
 
+// Minor ...
+type Minor [][]int
+
+// Cal ...
+func (m Minor) Cal() int {
+	xIndex, yIndex := 0, len(m)-1
+	return (m[xIndex][xIndex] * m[yIndex][yIndex]) - (m[xIndex][yIndex] * m[yIndex][xIndex])
+}
+
 // Key ...
 type Key [][]int
 
@@ -118,7 +131,7 @@ func (k *Key) Gen(n int) {
 
 }
 
-func (k *Key) Tans() (Tkey [][]int) {
+func (k *Key) Trans() (Tkey [][]int) {
 
 	Tkey = make([][]int, len(*k))
 	for i := range *k {
@@ -126,6 +139,32 @@ func (k *Key) Tans() (Tkey [][]int) {
 		for _, n := range (*k)[i] {
 			Tkey[index] = append(Tkey[index], n)
 			index++
+		}
+	}
+	return
+}
+
+func (k *Key) GetKeyMinor() (r [][]int) {
+	for i := range *k {
+		row := []int{}
+		for j := range (*k)[i] {
+			row = append(row, k.findMinor(i, j).Cal())
+		}
+		r = append(r, row)
+	}
+	return
+}
+
+func (k *Key) findMinor(x, y int) (m Minor) {
+	for i := range *k {
+		row := []int{}
+		for j := range (*k)[i] {
+			if i != x && j != y {
+				row = append(row, (*k)[i][j])
+			}
+		}
+		if len(row) != 0 {
+			m = append(m, row)
 		}
 	}
 	return
