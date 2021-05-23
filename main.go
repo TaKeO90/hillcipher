@@ -1,3 +1,7 @@
+/*
+NOTE: for this implementation we only support matrices with size 2 and 3
+*/
+
 package main
 
 import (
