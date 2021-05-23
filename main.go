@@ -118,6 +118,19 @@ func (k *Key) Gen(n int) {
 
 }
 
+func (k *Key) Tans() (Tkey [][]int) {
+
+	Tkey = make([][]int, len(*k))
+	for i := range *k {
+		index := 0
+		for _, n := range (*k)[i] {
+			Tkey[index] = append(Tkey[index], n)
+			index++
+		}
+	}
+	return
+}
+
 // String key into string.
 func (k *Key) String() string {
 	var res string
