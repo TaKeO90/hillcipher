@@ -291,7 +291,7 @@ func MultModular(n, m int) int {
 			return i
 		}
 	}
-	return 0
+	return n % m
 }
 
 // Mult Key method for multiplying matrices.
