@@ -33,9 +33,12 @@ type Cipher struct {
 	genKey  Key
 }
 
+// TODO: Introduce a key multiplication method for 3x3 matrices.
+
 // Encrypt hillcipher encryption.
 func (c *Cipher) Encrypt() (result string) {
 	pairs := wordToPairs(c.word, c.keysize)
+	InfoLogger.Printf("pairs %v", pairs)
 	for _, pair := range pairs {
 		result += strings.Join(c.genKey.Mult(pair).ToLetters(), "")
 	}
@@ -45,15 +48,20 @@ func (c *Cipher) Encrypt() (result string) {
 // Decrypt hillcipher decryption.
 func (c *Cipher) Decrypt() (result string) {
 	// TODO: need to separate the process of decryption for 2x2 and 3x3
-	// TODO: Find Co-Factor.
+	InfoLogger.Printf("word %v", wordToPairs(c.word, c.keysize))
+	pairs := wordToPairs(c.word, c.keysize)
 	key := c.genKey
+	// NOTE: if the size is 3 we are doing the following
 	InfoLogger.Printf("decrpytion key %v", key)
 	det := key.Determinant(c.keysize)
-	InfoLogger.Printf("Det %v", det)
-	transpKey := key.Trans()
-	InfoLogger.Printf("Trans key %v", transpKey)
-	tK := Key(transpKey)
-	InfoLogger.Printf("Minor %v", tK.GetKeyMinor())
+	InfoLogger.Printf("determinant %v", det)
+	nk := key.Trans().GetKeyMinor().CoFactor(det)
+	InfoLogger.Printf("new key %v", *nk)
+	for _, pair := range pairs {
+		fmt.Println("placeholder", pair)
+		//TODO: Introduce a key multiplication method for 3x3 matrices
+	}
+
 	return
 }
 
@@ -131,27 +139,61 @@ func (k *Key) Gen(n int) {
 
 }
 
-func (k *Key) Trans() (Tkey [][]int) {
+// Trans ...
+func (k *Key) Trans() (Tkey *Key) {
 
-	Tkey = make([][]int, len(*k))
+	Tkey = new(Key)
+	*Tkey = make(Key, len(*k))
 	for i := range *k {
 		index := 0
 		for _, n := range (*k)[i] {
-			Tkey[index] = append(Tkey[index], n)
+			(*Tkey)[index] = append((*Tkey)[index], n)
 			index++
 		}
 	}
 	return
 }
 
-func (k *Key) GetKeyMinor() (r [][]int) {
+// GetKeyMinor ...
+func (k *Key) GetKeyMinor() (r *Key) {
+	r = new(Key)
 	for i := range *k {
 		row := []int{}
 		for j := range (*k)[i] {
 			row = append(row, k.findMinor(i, j).Cal())
 		}
-		r = append(r, row)
+		*r = append(*r, row)
 	}
+	return
+}
+
+// CoFactor ...
+func (k *Key) CoFactor(det int) (r *Key) {
+	r = new(Key)
+	type Sign int
+	const (
+		PLUS Sign = iota
+		MINUS
+	)
+	var s Sign
+	for i, n := range *k {
+		for j, _ := range n {
+			switch s {
+			case MINUS:
+				n[j] = -n[j]
+				n[j] *= det
+				n[j] = Stack{}.Mod(n[j], 26)
+				(*k)[i] = n
+			default:
+				n[j] *= det
+				n[j] = Stack{}.Mod(n[j], 26)
+				(*k)[i] = n
+			}
+			s = (s + 1) % 2
+		}
+	}
+
+	r = k
 	return
 }
 
@@ -261,6 +303,7 @@ func (s Stack) GetDet() int {
 	return s.Mod(res, 26)
 }
 
+// Mod ...
 func (s Stack) Mod(n, m int) int {
 	if n < 0 && m > 0 || n > 0 && m < 0 {
 		return (n % m) + m
@@ -377,6 +420,7 @@ func main() {
 		keysize int
 	)
 
+	// TODO: add a flag that is an enumeration (MODE2, MODE3) because we are accepting two types of matrices at the moment 2x2 and 3x3
 	flag.StringVar(&mode, "mode", "encryption", "use 'encryption' to encrypt or 'decryption' to decrypt")
 	flag.StringVar(&word, "word", "", "word to encrypt or decrypt")
 	flag.StringVar(&key, "key", "", "key to use to decrypt")
