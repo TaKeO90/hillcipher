@@ -194,41 +194,19 @@ func (k *Key) detOf3x3() (result int) {
 
 	const firstRowIndex = 0
 
+	// twobytwo
 	stk := Stack{}
-	for i := range *k {
-		// twobytwo
+	for n := range (*k)[firstRowIndex] {
+		m := k.findMinor(firstRowIndex, n)
 		tbt := TwoByTwo{}
-		x, y := 0, 0
-		switch i {
-		case 0:
-			x = i + 1
-			y = len(*k)
-			tbt = append(tbt, (*k)[x][x:y]...)
-			tbt = append(tbt, (*k)[x+1][x:y]...)
-			stk = append(stk, tbt.Cal((*k)[firstRowIndex][i]))
-		case 1:
-			x = i
-			y = len(*k) - 1
-			tbt = append(tbt, (*k)[x][x-1], (*k)[x+1][x-1], (*k)[x][y], (*k)[x+1][y])
-			stk = append(stk, tbt.Cal((*k)[firstRowIndex][i]))
-		case 2:
-			for _ = range *k {
-				if x == len(*k)-1 {
-					break
-				}
-				x++
-				if x == 1 {
-					tbt = append(tbt, (*k)[x][x-1:x+1]...)
-				} else {
-					tbt = append(tbt, (*k)[x][x-2:x]...)
-				}
-			}
-
-			stk = append(stk, tbt.Cal((*k)[firstRowIndex][i]))
+		for _, fm := range m {
+			tbt = append(tbt, fm...)
 		}
+		stk = append(stk, tbt.Cal((*k)[firstRowIndex][n]))
 	}
 
 	d := stk.GetDet()
+	InfoLogger.Printf("DEBUG %v", d)
 	result = MultModular(d, 26)
 	return
 }
